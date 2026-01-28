@@ -8,6 +8,8 @@ import {
   Sparkles, Home, Scissors, User, Building2, ChevronDown, Lightbulb
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import type { LucideIcon } from "lucide-react";
+
 
 const BLUE = '#2563EB';
 
@@ -804,7 +806,7 @@ export default function PlugWaitlist() {
                               : 'border-gray-200 hover:border-blue-300'
                           }`}
                         >
-                          {Icon && <Icon className="w-4 h-4 text-blue-600" />}
+                          
                           <span className="text-xs font-medium lowercase flex-1">{service.label}</span>
                           {selectedServices.includes(service.id) && (
                             <CheckCircle2 className="w-4 h-4 text-blue-600" />
