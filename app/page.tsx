@@ -2,7 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Share2, Zap, CheckCircle2, TrendingUp, Star, ShieldCheck, Link as LinkIcon, Search, Award, Gift, Trophy, Instagram, Twitter } from 'lucide-react';
+import { 
+  Share2, Zap, CheckCircle2, TrendingUp, Star, ShieldCheck, 
+  Link as LinkIcon, Award, Gift, Trophy, Instagram, Twitter,
+  Sparkles, Home, Scissors, User, Building2, ChevronDown, Lightbulb
+} from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const BLUE = '#2563EB';
 
@@ -54,31 +59,68 @@ function RecentSignup({ firstName, timeAgo }: { firstName: string; timeAgo: stri
 }
 
 export default function PlugWaitlist() {
+  // Form fields
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [userType, setUserType] = useState<'user' | 'provider' | ''>('');
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [providerType, setProviderType] = useState('');
+  const [location, setLocation] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  
+  // UI state
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmEmail, setConfirmEmail] = useState('');
   const [refLink, setRefLink] = useState('');
   const [copying, setCopying] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  
+  // Stats
   const [refs, setRefs] = useState(0);
   const [joined, setJoined] = useState(0);
   const [todayJoined, setTodayJoined] = useState(0);
-  const [showConfetti, setShowConfetti] = useState(false);
   const [userPosition, setUserPosition] = useState<number | null>(null);
+  
+  // Leaderboard & Activity
   const [leaderboard, setLeaderboard] = useState<Array<{ firstName: string; lastName: string; refs: number; id: string }>>([]);
   const [recentSignups, setRecentSignups] = useState<Array<{ firstName: string; timeAgo: string; id: string }>>([]);
-  const [emailError, setEmailError] = useState('');
+  
   const formRef = useRef<HTMLDivElement>(null);
-
   const pct = Math.min((refs / 10) * 100, 100);
 
+  // Service categories - NO EMOJIS
+  const userServices = [
+    { id: 'hair', label: 'hair & beauty', icon: Sparkles },
+    { id: 'fashion', label: 'fashion/tailoring', icon: Scissors },
+    { id: 'cleaning', label: 'home cleaning', icon: Home }
+  ];
+
+  const providerServices = [
+    { id: 'hairstyling', label: 'hair styling' },
+    { id: 'barbering', label: 'barbering' },
+    { id: 'tailoring', label: 'tailoring/fashion design' },
+    { id: 'cleaning', label: 'home cleaning' }
+  ];
+
+  const locations = [
+    'Victoria Island',
+    'Lekki',
+    'Ikoyi',
+    'Ikeja',
+    'Surulere',
+    'Ajah',
+    'Other Lagos',
+    'Outside Lagos'
+  ];
+
   const howItWorks = [
-    { icon: Search, title: 'discover', desc: 'swipe through verified service providers near you' },
-    { icon: Zap, title: 'book instantly', desc: 'secure booking with escrow payment protection' },
-    { icon: Star, title: 'rate and review', desc: 'build trust with the plug rating system' }
+    { title: 'discover', desc: 'swipe through verified service providers near you' },
+    { title: 'book instantly', desc: 'secure booking with escrow payment protection' },
+    { title: 'rate and review', desc: 'build trust with the plug rating system' }
   ];
 
   const rewards = [
@@ -86,12 +128,6 @@ export default function PlugWaitlist() {
     { k: 3, icon: Award, title: 'booking credit', sub: 'unlock exclusive credit' },
     { k: 5, icon: Star, title: 'premium badge', sub: 'verified member status' },
     { k: 10, icon: TrendingUp, title: 'vip status', sub: 'priority support and perks' },
-  ];
-
-  const testimonials = [
-    { name: 'Chioma A.', role: 'Student, UNILAG', text: 'finally, a way to find trusted services on campus without the stress!' },
-    { name: 'Tunde O.', role: 'Barber, Lagos', text: 'plug helped me get more clients than ever before. game changer!' },
-    { name: 'Blessing M.', role: 'Makeup Artist', text: 'the verification system builds instant trust. my bookings doubled!' },
   ];
 
   // Real-time data from Supabase
@@ -123,9 +159,6 @@ export default function PlugWaitlist() {
 
   const fetchStats = async () => {
     try {
-      /* 
-      SUPABASE: Fetch real-time stats
-      
       const { count: totalCount } = await supabase
         .from('waitlist')
         .select('*', { count: 'exact', head: true });
@@ -139,11 +172,6 @@ export default function PlugWaitlist() {
       
       setJoined(totalCount || 0);
       setTodayJoined(todayCount || 0);
-      */
-      
-      // Demo: Simulate stats
-      setJoined(prev => prev + (Math.random() > 0.7 ? 1 : 0));
-      setTodayJoined(prev => prev + (Math.random() > 0.8 ? 1 : 0));
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -151,9 +179,6 @@ export default function PlugWaitlist() {
 
   const fetchLeaderboard = async () => {
     try {
-      /* 
-      SUPABASE: Fetch top referrers with real scores
-      
       const { data, error } = await supabase
         .from('waitlist')
         .select('id, first_name, last_name, referral_count')
@@ -168,16 +193,6 @@ export default function PlugWaitlist() {
           refs: u.referral_count 
         })));
       }
-      */
-      
-      // Demo: Simulate leaderboard
-      setLeaderboard([
-        { id: '1', firstName: 'Chioma', lastName: 'A.', refs: 28 },
-        { id: '2', firstName: 'Tunde', lastName: 'O.', refs: 19 },
-        { id: '3', firstName: 'Blessing', lastName: 'M.', refs: 15 },
-        { id: '4', firstName: 'David', lastName: 'K.', refs: 12 },
-        { id: '5', firstName: 'Faith', lastName: 'I.', refs: 8 },
-      ]);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     }
@@ -185,9 +200,6 @@ export default function PlugWaitlist() {
 
   const fetchRecentSignups = async () => {
     try {
-      /* 
-      SUPABASE: Fetch recent signups
-      
       const { data, error } = await supabase
         .from('waitlist')
         .select('id, first_name, created_at')
@@ -201,9 +213,6 @@ export default function PlugWaitlist() {
           timeAgo: getTimeAgo(u.created_at)
         })));
       }
-      */
-      
-      // Demo: Keep existing simulation
     } catch (error) {
       console.error('Error fetching recent signups:', error);
     }
@@ -220,18 +229,12 @@ export default function PlugWaitlist() {
 
   const trackReferralVisit = async (referralCode: string) => {
     try {
-      /* 
-      SUPABASE: Track referral visit
-      
       await supabase
         .from('referral_visits')
         .insert([{
           referral_code: referralCode,
           visited_at: new Date().toISOString()
         }]);
-      */
-      
-      console.log('Referral visit tracked:', referralCode);
     } catch (error) {
       console.error('Error tracking referral:', error);
     }
@@ -257,9 +260,6 @@ export default function PlugWaitlist() {
 
   const checkDuplicate = async (email: string): Promise<boolean> => {
     try {
-      /* 
-      SUPABASE: Check for duplicate email
-      
       const { data, error } = await supabase
         .from('waitlist')
         .select('email')
@@ -267,24 +267,45 @@ export default function PlugWaitlist() {
         .single();
       
       return !!data;
-      */
-      
-      return false;
     } catch (error) {
       return false;
     }
+  };
+
+  const handleServiceToggle = (serviceId: string) => {
+    setSelectedServices(prev =>
+      prev.includes(serviceId)
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const validateForm = (): string | null => {
+    if (!firstName.trim()) return 'please enter your first name';
+    if (!lastName.trim()) return 'please enter your last name';
+    if (!email.trim()) return 'please enter your email';
+    if (!validateEmail(email)) return emailError;
+    if (!userType) return 'please select if you\'re a user or provider';
+    if (selectedServices.length === 0) return 'please select at least one service';
+    if (userType === 'provider' && !providerType) return 'please select your provider type';
+    if (!location) return 'please select your location';
+    return null;
   };
 
   const scrollToForm = () => {
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const generateReferralCode = () => {
+    return `${firstName.substring(0, 3).toUpperCase()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateEmail(email)) return;
-    if (!firstName.trim() || !lastName.trim()) {
-      setMsg('please enter your full name');
+    const validationError = validateForm();
+    if (validationError) {
+      setMsg(validationError);
       return;
     }
     
@@ -299,48 +320,71 @@ export default function PlugWaitlist() {
         return;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const mockCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       const referredBy = localStorage.getItem('referredBy');
+      const referralCode = generateReferralCode();
       
-      /* 
-      SUPABASE INTEGRATION:
-      
+      // Insert into waitlist table
       const { data, error } = await supabase
         .from('waitlist')
         .insert([{
           email: email.toLowerCase(),
           first_name: firstName.trim(),
           last_name: lastName.trim(),
-          referral_code: mockCode,
+          referral_code: referralCode,
           referred_by: referredBy || null,
           referral_count: 0,
-          created_at: new Date().toISOString()
+          email_confirmed: false
         }])
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      // Store additional data in analytics_events
+      await supabase
+        .from('analytics_events')
+        .insert([{
+          event_type: 'signup',
+          user_email: email.toLowerCase(),
+          ref_code: referralCode,
+          metadata: {
+            user_type: userType,
+            services: selectedServices,
+            provider_type: providerType,
+            location: location,
+            suggestion: suggestion || null
+          }
+        }]);
       
       // Update referrer's count
       if (referredBy) {
-        await supabase.rpc('increment_referral_count', {
-          ref_code: referredBy
-        });
+        await supabase
+          .from('waitlist')
+          .update({ referral_count: supabase.raw('referral_count + 1') })
+          .eq('referral_code', referredBy);
       }
       
       // Send confirmation email via API route
-      await fetch('/api/send-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          firstName: firstName,
-          lastName: lastName,
-          referralCode: mockCode
-        })
-      });
+      try {
+        await fetch('/api/send-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email,
+            firstName: firstName,
+            lastName: lastName,
+            referralCode: referralCode,
+            userType: userType,
+            services: selectedServices
+          })
+        });
+      } catch (emailError) {
+        console.log('Email sending skipped or failed:', emailError);
+        // Continue anyway - email is optional for now
+      }
       
       // Get user position
       const { count } = await supabase
@@ -350,23 +394,10 @@ export default function PlugWaitlist() {
       
       setUserPosition(count || 0);
       
-      // Fetch user's referral count
-      const { data: userData } = await supabase
-        .from('waitlist')
-        .select('referral_count')
-        .eq('email', email.toLowerCase())
-        .single();
-        
-      if (userData) {
-        setRefs(userData.referral_count);
-      }
-      */
-      
-      const link = `${window.location.origin}?ref=${mockCode}`;
+      const link = `${window.location.origin}?ref=${referralCode}`;
       
       setRefLink(link);
       setConfirmEmail(email);
-      setUserPosition(joined + 1);
       setShowConfirm(true);
       setShowConfetti(true);
       setMsg('you are on the list! check your email to confirm.');
@@ -375,9 +406,15 @@ export default function PlugWaitlist() {
       
       setTimeout(() => setShowConfetti(false), 4000);
       
+      // Reset form
       setEmail('');
       setFirstName('');
       setLastName('');
+      setUserType('');
+      setSelectedServices([]);
+      setProviderType('');
+      setLocation('');
+      setSuggestion('');
       
       fetchStats();
       fetchLeaderboard();
@@ -425,15 +462,12 @@ export default function PlugWaitlist() {
     setMsg('sending confirmation email...');
     
     try {
-      /* 
       await fetch('/api/resend-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: confirmEmail })
       });
-      */
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
       setMsg('confirmation email resent! check your inbox.');
     } catch (error) {
       setMsg('failed to resend. please try again.');
@@ -444,31 +478,12 @@ export default function PlugWaitlist() {
     setShowConfirm(false);
   };
 
-  useEffect(() => {
-    setJoined(847);
-    setTodayJoined(23);
-  }, []);
-
-  useEffect(() => {
-    const names = ['Chiamaka', 'Tunde', 'Blessing', 'David', 'Faith', 'Emeka', 'Ada', 'Bolu'];
-    
-    const interval = setInterval(() => {
-      const newSignup = {
-        id: Math.random().toString(36).substring(7),
-        firstName: names[Math.floor(Math.random() * names.length)],
-        timeAgo: 'just now',
-      };
-      setRecentSignups(prev => [newSignup, ...prev.slice(0, 2)]);
-    }, 8000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <section className="min-h-screen py-12 px-4 md:px-8 bg-slate-50 font-system">
       {showConfetti && <Confetti />}
       
       <div className="max-w-6xl w-full mx-auto">
+        {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -507,6 +522,7 @@ export default function PlugWaitlist() {
           </motion.div>
         </motion.div>
 
+        {/* Recent Signups */}
         <AnimatePresence mode="wait">
           {recentSignups.length > 0 && (
             <motion.div
@@ -525,6 +541,7 @@ export default function PlugWaitlist() {
           )}
         </AnimatePresence>
 
+        {/* Hero */}
         <div className="text-center mt-10">
           <motion.p
             initial={{ opacity: 0, y: 8 }}
@@ -582,7 +599,7 @@ export default function PlugWaitlist() {
                   <Trophy className="w-6 h-6 text-yellow-600" />
                 </motion.div>
                 <div className="text-left">
-                  <p className="text-sm font-bold text-gray-900 lowercase">£1,500 grand prize!</p>
+                  <p className="text-sm font-bold text-gray-900 lowercase">£1,500 grand prize</p>
                   <p className="text-xs text-gray-600 lowercase">top referrer wins at launch</p>
                 </div>
               </div>
@@ -590,6 +607,7 @@ export default function PlugWaitlist() {
           </motion.div>
         </div>
 
+        {/* How It Works */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -607,36 +625,24 @@ export default function PlugWaitlist() {
             </div>
 
             <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {howItWorks.map((s, idx) => {
-                const Icon = s.icon;
-                return (
-                  <motion.div
-                    key={s.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + idx * 0.1, type: 'spring', stiffness: 200 }}
-                    whileHover={{ scale: 1.05, y: -5 }}
-                    className="glass-card p-5 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <motion.div
-                        whileHover={{ rotate: 360 }}
-                        transition={{ duration: 0.5 }}
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{ background: 'rgba(37,99,235,0.10)' }}
-                      >
-                        <Icon className="w-4 h-4" style={{ color: BLUE }} />
-                      </motion.div>
-                      <p className="text-sm font-semibold tracking-tight lowercase">{s.title}</p>
-                    </div>
-                    <p className="mt-3 text-sm text-gray-600 lowercase">{s.desc}</p>
-                  </motion.div>
-                );
-              })}
+              {howItWorks.map((s, idx) => (
+                <motion.div
+                  key={s.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 + idx * 0.1, type: 'spring', stiffness: 200 }}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className="glass-card p-5 cursor-pointer"
+                >
+                  <p className="text-sm font-semibold tracking-tight lowercase">{s.title}</p>
+                  <p className="mt-3 text-sm text-gray-600 lowercase">{s.desc}</p>
+                </motion.div>
+              ))}
             </div>
           </motion.div>
         </motion.div>
 
+        {/* Signup Form */}
         <motion.div
           ref={formRef}
           initial={{ opacity: 0, y: 10 }}
@@ -672,12 +678,13 @@ export default function PlugWaitlist() {
                 className="mt-3 text-center"
               >
                 <p className="text-sm font-semibold lowercase" style={{ color: BLUE }}>
-                  you are number {userPosition} on the waitlist!
+                  you are number {userPosition} on the waitlist
                 </p>
               </motion.div>
             )}
 
             <form onSubmit={submit} className="mt-5 space-y-3">
+              {/* Email */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -705,6 +712,7 @@ export default function PlugWaitlist() {
                 )}
               </motion.div>
 
+              {/* First & Last Name */}
               <motion.div 
                 className="grid grid-cols-2 gap-3"
                 initial={{ opacity: 0, x: -20 }}
@@ -727,6 +735,162 @@ export default function PlugWaitlist() {
                 />
               </motion.div>
 
+              {/* User Type Selection */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <label className="block text-xs text-gray-500 lowercase mb-2">i'm interested as a</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setUserType('user')}
+                    className={`p-3 rounded-xl border transition-all ${
+                      userType === 'user'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <User className="w-5 h-5 mx-auto mb-1 text-blue-600" />
+                    <div className="text-xs font-medium lowercase">service user</div>
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setUserType('provider')}
+                    className={`p-3 rounded-xl border transition-all ${
+                      userType === 'provider'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <Building2 className="w-5 h-5 mx-auto mb-1 text-blue-600" />
+                    <div className="text-xs font-medium lowercase">service provider</div>
+                  </motion.button>
+                </div>
+              </motion.div>
+
+              {/* Service Selection - NO EMOJIS */}
+              {userType && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <label className="block text-xs text-gray-500 lowercase mb-2">
+                    {userType === 'provider' ? 'which services do you provide' : 'which services interest you'}
+                  </label>
+                  <div className="space-y-2">
+                    {(userType === 'provider' ? providerServices : userServices).map((service) => {
+                      const Icon = 'icon' in service ? service.icon : null;
+                      return (
+                        <motion.button
+                          key={service.id}
+                          type="button"
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.99 }}
+                          onClick={() => handleServiceToggle(service.id)}
+                          className={`w-full p-3 rounded-xl border transition-all text-left flex items-center gap-2 ${
+                            selectedServices.includes(service.id)
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-blue-300'
+                          }`}
+                        >
+                          {Icon && <Icon className="w-4 h-4 text-blue-600" />}
+                          <span className="text-xs font-medium lowercase flex-1">{service.label}</span>
+                          {selectedServices.includes(service.id) && (
+                            <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Provider Type */}
+              {userType === 'provider' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <label className="block text-xs text-gray-500 lowercase mb-2">are you</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'individual', label: 'individual' },
+                      { value: 'shop', label: 'salon/shop' },
+                      { value: 'company', label: 'company' }
+                    ].map((type) => (
+                      <motion.button
+                        key={type.value}
+                        type="button"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setProviderType(type.value)}
+                        className={`p-2 rounded-xl border transition-all text-xs ${
+                          providerType === type.value
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-300'
+                        }`}
+                      >
+                        {type.label}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Location */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.45 }}
+              >
+                <label className="block text-xs text-gray-500 lowercase mb-2">location</label>
+                <div className="relative">
+                  <select
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="input-field lowercase w-full appearance-none"
+                    required
+                  >
+                    <option value="">select your location</option>
+                    {locations.map((loc) => (
+                      <option key={loc} value={loc}>{loc.toLowerCase()}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </motion.div>
+
+              {/* Suggestions/Ideas Section */}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <label className="block text-xs text-gray-500 lowercase mb-2 flex items-center gap-1">
+                  <Lightbulb className="w-3 h-3" />
+                  suggestions or ideas (optional)
+                </label>
+                <textarea
+                  className="input-field lowercase w-full min-h-[80px] rounded-2xl resize-none"
+                  placeholder="share any features you'd like to see or ideas you have..."
+                  value={suggestion}
+                  onChange={(e) => setSuggestion(e.target.value)}
+                  maxLength={500}
+                />
+                <p className="text-xs text-gray-400 mt-1 lowercase text-right">
+                  {suggestion.length}/500
+                </p>
+              </motion.div>
+
+              {/* Submit Button */}
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -735,7 +899,7 @@ export default function PlugWaitlist() {
                 style={{ background: BLUE, color: 'white' }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, type: 'spring', stiffness: 200 }}
+                transition={{ delay: 0.55, type: 'spring', stiffness: 200 }}
               >
                 {submitting ? 'joining...' : 'join waitlist'}
               </motion.button>
@@ -745,14 +909,11 @@ export default function PlugWaitlist() {
               className="mt-4 text-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
+              transition={{ delay: 0.6 }}
             >
               <p className="text-xs text-gray-500 lowercase flex items-center justify-center gap-2">
                 <ShieldCheck className="w-4 h-4" />
                 no spam. early updates only.
-              </p>
-              <p className="mt-2 text-xs text-gray-500 lowercase">
-                by joining, you agree to receive launch updates.
               </p>
             </motion.div>
 
@@ -770,6 +931,7 @@ export default function PlugWaitlist() {
               )}
             </AnimatePresence>
 
+            {/* Confirmation Modal */}
             <AnimatePresence>
               {showConfirm && (
                 <motion.div
@@ -826,10 +988,7 @@ export default function PlugWaitlist() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       type="button"
-                      onClick={() => {
-                        setMsg('share your link to move up the list.');
-                        if (refLink) copy();
-                      }}
+                      onClick={copy}
                       className="rounded-full px-5 py-2 text-sm font-semibold tracking-tight border bg-white/60 inline-flex items-center justify-center gap-2 lowercase"
                       style={{ borderColor: 'rgba(37,99,235,0.25)', color: BLUE }}
                     >
@@ -885,33 +1044,7 @@ export default function PlugWaitlist() {
               )}
             </AnimatePresence>
 
-            <AnimatePresence>
-              {refLink && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ type: 'spring', stiffness: 200 }}
-                  className="mt-5"
-                >
-                  <div className="glass-card p-4">
-                    <p className="text-xs text-gray-500 lowercase">your referral link</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <p className="text-sm text-gray-800 break-all flex-1 font-mono">{refLink}</p>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={copy}
-                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        <LinkIcon className="w-4 h-4 text-gray-600" />
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
+            {/* Stats */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -945,6 +1078,7 @@ export default function PlugWaitlist() {
           </motion.div>
         </motion.div>
 
+        {/* Leaderboard */}
         {leaderboard.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -1013,48 +1147,14 @@ export default function PlugWaitlist() {
                 transition={{ type: 'spring', stiffness: 400 }}
               >
                 <p className="text-xs text-gray-700 lowercase">
-                  <span className="font-semibold">number 1 wins £1,500</span> at launch! keep referring to climb the ranks.
+                  <span className="font-semibold">number 1 wins £1,500</span> at launch keep referring to climb the ranks.
                 </p>
               </motion.div>
             </motion.div>
           </motion.div>
         )}
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.6 }}
-          className="mt-10"
-        >
-          <div className="text-center mb-6">
-            <p className="text-sm font-bold lowercase">what people are saying</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {testimonials.map((testimonial, idx) => (
-              <motion.div
-                key={testimonial.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 + idx * 0.1, type: 'spring', stiffness: 200 }}
-                whileHover={{ scale: 1.05, y: -5 }}
-                className="glass-card p-5 cursor-pointer"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                    {testimonial.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold lowercase">{testimonial.name}</p>
-                    <p className="text-xs text-gray-500 lowercase">{testimonial.role}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 lowercase italic">{testimonial.text}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
+        {/* Rewards */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1130,7 +1230,7 @@ export default function PlugWaitlist() {
                 transition={{ type: 'spring', stiffness: 400 }}
               >
                 <p className="text-xs text-gray-600 lowercase">
-                  <span className="font-semibold">pro tip:</span> share your link in group chats, social media, and communities. each referral counts!
+                  <span className="font-semibold">pro tip:</span> share your link in group chats, social media, and communities. each referral counts
                 </p>
               </motion.div>
             </motion.div>
@@ -1193,6 +1293,7 @@ export default function PlugWaitlist() {
           </div>
         </motion.div>
 
+        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
