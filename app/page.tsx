@@ -360,12 +360,16 @@ export default function PlugWaitlist() {
         }]);
       
       // Update referrer's count
-      if (referredBy) {
-        await supabase
-          .from('waitlist')
-          .update({ referral_count: supabase.raw('referral_count + 1') })
-          .eq('referral_code', referredBy);
-      }
+            if (referredBy) {
+              const { error: referralError } = await supabase.rpc(
+                "increment_referral_count",
+                { ref_code: referredBy }
+              );
+
+              if (referralError) {
+                console.error("Referral increment failed:", referralError);
+              }
+            }
       
       // Send confirmation email via API route
       try {
