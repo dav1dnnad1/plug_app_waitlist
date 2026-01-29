@@ -2,7 +2,6 @@
 
 import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
@@ -10,95 +9,68 @@ function ConfirmInner() {
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
 
-  const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading"
-  );
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
   const [userPosition, setUserPosition] = useState<number | null>(null);
 
   useEffect(() => {
     if (!code) {
       setStatus("error");
-      setMessage("Invalid confirmation link");
+      setMessage("invalid confirmation link");
+      return;
+    }
+
+    // Validate code format (8 uppercase alphanumeric)
+    if (!/^[A-Z0-9]{8}$/.test(code)) {
+      setStatus("error");
+      setMessage("invalid confirmation code format");
       return;
     }
 
     confirmEmail(code);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
   const confirmEmail = async (referralCode: string) => {
     try {
-      // Find user by referral code
-      const { data: user, error: fetchError } = await supabase
-        .from("waitlist")
-        .select("*")
-        .eq("referral_code", referralCode)
-        .single();
+      // Call secure API route instead of direct Supabase call
+      const response = await fetch('/api/confirm-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: referralCode })
+      });
 
-      if (fetchError || !user) {
+      const data = await response.json();
+
+      if (!response.ok) {
         setStatus("error");
-        setMessage("Invalid confirmation code");
+        setMessage(data.error || "confirmation failed");
         return;
       }
 
-      if (user.confirmed) {
-        setStatus("success");
-        setMessage("Your email was already confirmed!");
-
-        // Get position
-        const { count } = await supabase
-          .from("waitlist")
-          .select("*", { count: "exact", head: true })
-          .lte("created_at", user.created_at);
-
-        setUserPosition(count || 0);
-        return;
-      }
-
-      // Update user as confirmed
-      const { error: updateError } = await supabase
-        .from("waitlist")
-        .update({
-          confirmed: true,
-          confirmed_at: new Date().toISOString(),
-        })
-        .eq("referral_code", referralCode);
-
-      if (updateError) {
-        setStatus("error");
-        setMessage("Failed to confirm email");
-        return;
-      }
-
-      // Get user position
-      const { count } = await supabase
-        .from("waitlist")
-        .select("*", { count: "exact", head: true })
-        .lte("created_at", user.created_at);
-
-      setUserPosition(count || 0);
+      setUserPosition(data.position);
       setStatus("success");
-      setMessage("Your email has been confirmed!");
+      setMessage(data.alreadyConfirmed 
+        ? "your email was already confirmed" 
+        : "your email has been confirmed");
 
-      // Redirect to homepage after 3 seconds
+      // Redirect after 3 seconds
       setTimeout(() => {
         window.location.href = "/";
       }, 3000);
     } catch (error) {
       console.error("Confirmation error:", error);
       setStatus("error");
-      setMessage("Something went wrong. Please try again.");
+      setMessage("something went wrong please try again");
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-white p-4 apple-font">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center"
+        className="max-w-md w-full glass-card p-8 text-center"
       >
         {status === "loading" && (
           <>
@@ -109,10 +81,8 @@ function ConfirmInner() {
             >
               <Loader2 className="w-16 h-16 text-blue-600" />
             </motion.div>
-            <h1 className="text-2xl font-bold mb-2 lowercase">
-              confirming your email...
-            </h1>
-            <p className="text-gray-600 lowercase">please wait</p>
+            <h1 className="text-2xl font-bold mb-2">confirming your email</h1>
+            <p className="text-gray-600">please wait</p>
           </>
         )}
 
@@ -126,23 +96,17 @@ function ConfirmInner() {
             >
               <CheckCircle2 className="w-10 h-10 text-green-600" />
             </motion.div>
-            <h1 className="text-2xl font-bold mb-2 lowercase">
-              email confirmed! 🎉
-            </h1>
-            <p className="text-gray-600 lowercase mb-4">{message}</p>
+            <h1 className="text-2xl font-bold mb-2">email confirmed 🎉</h1>
+            <p className="text-gray-600 mb-4">{message}</p>
 
             {userPosition !== null && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
-                <p className="text-sm text-gray-600 lowercase">your position</p>
-                <p className="text-3xl font-bold text-blue-600">
-                  #{userPosition}
-                </p>
+                <p className="text-sm text-gray-600">your position</p>
+                <p className="text-3xl font-bold text-blue-600">#{userPosition}</p>
               </div>
             )}
 
-            <p className="text-sm text-gray-500 lowercase">
-              redirecting you to the waitlist...
-            </p>
+            <p className="text-sm text-gray-500">redirecting you to the waitlist</p>
           </>
         )}
 
@@ -156,26 +120,38 @@ function ConfirmInner() {
             >
               <XCircle className="w-10 h-10 text-red-600" />
             </motion.div>
-            <h1 className="text-2xl font-bold mb-2 lowercase">
-              confirmation failed
-            </h1>
-            <p className="text-gray-600 lowercase mb-6">{message}</p>
+            <h1 className="text-2xl font-bold mb-2">confirmation failed</h1>
+            <p className="text-gray-600 mb-6">{message}</p>
             <a
               href="/"
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition-colors lowercase"
+              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-700 transition-colors"
             >
               back to homepage
             </a>
           </>
         )}
       </motion.div>
+
+      <style jsx global>{`
+        .apple-font {
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
+        .glass-card {
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          border-radius: 1rem;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+      `}</style>
     </div>
   );
 }
 
 export default function ConfirmPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen p-6">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">loading...</div>}>
       <ConfirmInner />
     </Suspense>
   );
